@@ -1,5 +1,0 @@
-load_dotenv
-requests
-apscheduler
-bs4
-flask
