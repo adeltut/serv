@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+       <h1>Регистрация</h1>
+        <div class="login-form">
+            <form method="POST">
+               <label for="username">Имя пользователя:</label><br>
+                <input type="text" id="username" name="username" required><br>
+                <label for="password">Пароль:</label><br>
+               <input type="password" id="password" name="password" required><br>
+                <label for="phone_number">Номер телефона (7XXXXXXXXXX):</label><br>
+              <input type="tel" id="phone_number" name="phone_number" pattern="7\d{10}"  placeholder="7xxxxxxxxxx"  ><br>
+              <button type="submit">Зарегистрироваться</button>
+            </form>
+             <div class = "register-container">
+                 <p>Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></p>
+             </div>
+        </div>
+    </div>
+</body>
+</html>

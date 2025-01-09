@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Задания Группы</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+         <div class="tabs">
+            <button class="tab-button active" data-tab="tasks">Задания</button>
+            <button class="tab-button" data-tab="completed">Выполненные</button>
+             <button class="tab-button" data-tab="schedule">Расписание</button>
+        </div>
+       <div id="tasks" class="tab-content active">
+            <h1>Задания</h1>
+             <div id="task-list" class="task-list">
+            </div>
+        </div>
+         <div id="completed" class="tab-content">
+            <h1>Выполненные задания</h1>
+             <div id="completed-task-list" class="task-list">
+            </div>
+        </div>
+          <div id="schedule" class="tab-content">
+            <h1>Расписание занятий</h1>
+            <div class = "schedule-header">
+               <button id="prev-week" class="btn">&lt;</button>
+               <h3 id="current-week">Неделя </h3>
+               <button id="next-week" class="btn">&gt;</button>
+               </div>
+            <div id="schedule-container">
+               </div>
+           </div>
+
+        <h2>Календарь</h2>
+        <div id="calendar-container" class="calendar-container">
+            <div id="calendar-header" class="calendar-header">
+                <button id="prev-month" class="btn">&lt;</button>
+                <h3 id="current-month">Месяц год</h3>
+                <button id="next-month" class="btn">&gt;</button>
+            </div>
+            <div id="calendar" class="calendar">
+            </div>
+        </div>
+        <div id="day-task-list" class="day-task-list">
+             <h3>Задания на выбранный день</h3>
+        </div>
+
+         <button id="addTaskButton">Добавить задание</button>
+         <div id="addTaskForm" class="add-task-form">
+            <form id="addTaskFormElement"  enctype="multipart/form-data">
+                <input type="text" id="taskTitle" name="title" placeholder="Тема">
+                  <div id="links-container">
+                      <input type="text" class="taskLink" name="taskLink" placeholder="Ссылка на задание">
+                  </div>
+                    <button type="button" id="addLinkBtn">Добавить ссылку</button>
+                  <textarea id="taskDescription" name="description" placeholder="Описание"></textarea>
+                   <input type="date" id="taskDueDate" name="dueDate">
+                   <input type="text" id="taskSubject" name="subject" placeholder="Предмет">
+                    <div id="files-container">
+                     </div>
+                        <button type="button" id="addFileBtn">Добавить файл</button>
+                     <button type = "button" id = "cancelAddButton">Отмена</button>
+                    <button type="submit">Добавить</button>
+           </form>
+         </div>
+
+        <div id="taskDetails" class="task-details" style="display: none;">
+            <h3 id="taskDetailsTitle"></h3>
+             <div class = "details-section">
+                 <h4>Ссылки:</h4>
+                 <div id="taskDetailsLinks">
+                 </div>
+             </div>
+              <div class = "details-section">
+                   <h4>Описание:</h4>
+                   <p id="taskDetailsDescription"></p>
+              </div>
+               <div class = "details-section">
+                  <h4>Файлы:</h4>
+                    <div id="taskDetailsFiles">
+                     </div>
+               </div>
+             <button id="taskDetailsCloseButton" class="close-button">Закрыть</button>
+               <div id="taskDueDateChange"  >
+                 <h4>Изменить дату:</h4>
+                <input type="date" id="taskNewDueDate">
+               <button type="button"  id="saveNewDueDate"  >Сохранить</button>
+                </div>
+         </div>
+     <div style="display:none;" id="tasksData">{{ tasks | tojson }}</div>
+    </div>
+    <script>
+     document.addEventListener('DOMContentLoaded', function () {
+    const taskListDiv = document.getElementById('task-list');
+    const completedTaskListDiv = document.getElementById('completed-task-list');
+     const scheduleDiv = document.getElementById('schedule-container');
+        const currentWeekDisplay = document.getElementById('current-week');
+        const prevWeekButton = document.getElementById('prev-week');
+    const nextWeekButton = document.getElementById('next-week');
+    const calendarDiv = document.getElementById('calendar');
+    const currentMonthDisplay = document.getElementById('current-month');
+    const prevMonthButton = document.getElementById('prev-month');
+    const nextMonthButton = document.getElementById('next-month');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const dayTaskListDiv = document.getElementById('day-task-list')
+    const addTaskForm = document.querySelector('#addTaskForm');
+    const addTaskButton = document.querySelector('#addTaskButton');
+     const addTaskFormElement = document.getElementById('addTaskFormElement');
+    const taskDetailsDiv = document.getElementById('taskDetails');
+     const taskDetailsTitle = document.getElementById('taskDetailsTitle');
+     const taskDetailsLinks = document.getElementById('taskDetailsLinks')
+    const taskDetailsDescription = document.getElementById('taskDetailsDescription');
+     const taskDetailsFiles = document.getElementById('taskDetailsFiles');
+    const taskDetailsCloseButton = document.getElementById('taskDetailsCloseButton');
+     const linksContainer = document.getElementById('links-container');
+        const addLinkBtn = document.getElementById('addLinkBtn');
+         const filesContainer = document.getElementById('files-container');
+    const addFileBtn = document.getElementById('addFileBtn');
+    const cancelAddButton = document.getElementById('cancelAddButton')
+        const taskDueDateChange = document.getElementById('taskDueDateChange')
+      const saveNewDueDate = document.getElementById('saveNewDueDate');
+       const taskNewDueDate = document.getElementById('taskNewDueDate');
+    let currentWeek = 20;
+    let tasks = {{ tasks | tojson }};
+
+    let currentDate = new Date();
+       function transformSchedule(scheduleData) {
+            let scheduleHTML = '';
+         const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота','Воскресенье'];
+            if (scheduleData && scheduleData.length > 0) {
+                scheduleData.forEach((daySchedule, index) => {
+                 scheduleHTML += `
+                        <div class="schedule-day">
+                            <button class="schedule-day-title" data-day-index="${index}">
+                                  ${days[index]}
+                            </button>
+                             <div class="schedule-day-content" id ="day-${index}" style="display: none;">
+                             ${daySchedule.lessons.map(lesson => `
+                                 <p class="schedule-cell">
+                                 ${lesson.time}<br>
+                                  ${lesson.subject}  <span style = "font-size: 0.8em;">(${lesson.teacher},${lesson.room})<br>
+                                  ${lesson.break ? `<span style="color: red;">Перерыв: ${lesson.break}</span>` : ''}
+                                 </p>`).join('')}
+                             </div>
+                         </div>`;
+                     })
+            } else {
+                scheduleHTML = '<p>Расписание не найдено.</p>';
+            }
+        return scheduleHTML;
+    }
+     function fetchSchedule() {
+        scheduleDiv.innerHTML = 'Загрузка расписания...';
+           fetch(`/get_schedule/${currentWeek}`)
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+              return response.json();
+            })
+             .then(data => {
+                if(data && data.error){
+                    scheduleDiv.innerHTML = "Не удалось загрузить расписание"
+                    return
+                }
+                scheduleDiv.innerHTML = transformSchedule(data);
+                const today = new Date().getDay();
+                const currentDayIndex = (today === 0) ? 6 : today - 1;
+               const currentDayButton =  scheduleDiv.querySelector(`[data-day-index="${currentDayIndex}"]`)
+                if(currentDayButton){
+                  const currentDayContent = currentDayButton.nextElementSibling
+                  currentDayContent.style.display = 'block'
+                }
+                scheduleDiv.querySelectorAll('.schedule-day-title').forEach(button => {
+                     button.addEventListener('click', () => {
+                    const content = button.nextElementSibling;
+                        if(content.style.display === 'none') {
+                         content.style.display = 'block'
+                        }else{
+                          content.style.display = 'none'
+                        }
+                    });
+                  })
+                })
+            .catch(error => {
+                 scheduleDiv.innerHTML = 'Не удалось загрузить расписание';
+               console.error('Ошибка:', error);
+                });
+      }
+    function renderTasks() {
+        taskListDiv.innerHTML = '';
+        completedTaskListDiv.innerHTML = '';
+
+        tasks.forEach(task => {
+            const taskItem = document.createElement('div');
+            taskItem.classList.add('task-item');
+            const links = task.links ? task.links.split(',') : [];
+           const files = task.files ? task.files.split(',') : [];
+           const backgroundColor = task.color ? `background-color: ${task.color}` : ''
+             taskItem.innerHTML = `
+                <div style="${backgroundColor}">
+                   <h3>${task.title}</h3>
+                    <p>Дата сдачи: ${task.due_date}</p>
+                    <p>Предмет: ${task.subject}</p>
+                </div>
+                    <div>
+                          <button data-task-id="${task.id}" class="complete-btn">${task.status === 'completed' ? 'Отменить' : 'Выполнено'}</button>
+                    <button data-task-id="${task.id}" class="details-button">Подробнее</button>
+
+                    </div>
+            `;
+            const completeButton = taskItem.querySelector('.complete-btn');
+            completeButton.addEventListener('click', () => toggleComplete(task.id));
+
+             const detailsButton = taskItem.querySelector('.details-button');
+            detailsButton.addEventListener('click', () => showTaskDetails(task.id));
+            if (task.status === 'completed') {
+                completedTaskListDiv.appendChild(taskItem);
+            } else {
+                taskListDiv.appendChild(taskItem);
+            }
+        });
+    }
+      function showTaskDetails(taskId) {
+         const task = tasks.find(task => task.id === taskId);
+           taskDetailsDiv.setAttribute('data-task-id', taskId)
+        if (task) {
+            taskDetailsTitle.textContent = task.title;
+            taskDetailsDescription.textContent = task.description;
+            taskDetailsLinks.innerHTML = "";
+              const links = task.links ? task.links.split(',') : [];
+              links.forEach(link => {
+                  const linkElement = document.createElement('a');
+                 linkElement.href = link;
+                  linkElement.target = '_blank';
+                 linkElement.textContent = 'Ссылка';
+                   taskDetailsLinks.appendChild(linkElement)
+              })
+            taskDetailsFiles.innerHTML = "";
+              const files = task.files ? task.files.split(',') : [];
+               files.forEach(file => {
+                  const imgElement = document.createElement('img');
+                   imgElement.src = file;
+                  imgElement.style.width = '100px'
+                  imgElement.style.height ='100px'
+                     imgElement.style.cursor ='pointer';
+                  imgElement.onclick = () => {
+                    window.open(file, '_blank')
+                  }
+                    taskDetailsFiles.appendChild(imgElement)
+               })
+              taskDueDateChange.style.display = 'block';
+              taskNewDueDate.value = task.due_date
+             taskDetailsDiv.style.display = 'block';
+
+        }
+    }
+    function toggleComplete(taskId) {
+     fetch(`/toggle_task_status/${taskId}`, { method: 'POST' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.tasks) {
+                   tasks = data.tasks;
+                     setTaskColors();
+                    renderTasks();
+                    generateCalendar();
+            }
+            else{
+             console.error('Не удалось обновить задачи:',data)
+            }
+          })
+          .catch(error => console.error('Ошибка при обновлении задач:', error));
+    }
+    function generateCalendar() {
+        calendarDiv.innerHTML = '';
+
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDayOfMonth = new Date(year, month, 1);
+        const lastDayOfMonth = new Date(year, month + 1, 0);
+        const daysInMonth = lastDayOfMonth.getDate();
+
+        const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        daysOfWeek.forEach(day => {
+            const dayElement = document.createElement('div');
+            dayElement.classList.add('day', 'disabled');
+            dayElement.textContent = day;
+            calendarDiv.appendChild(dayElement);
+        });
+
+        let dayCounter = 1;
+        for (let i = 0; i < 6; i++) {
+            for (let j = 0; j < 7; j++) {
+                if ((i === 0 && j < firstDayOfMonth.getDay() - 1) || dayCounter > daysInMonth) {
+                    const dayElement = document.createElement('div');
+                    dayElement.classList.add('day', 'disabled');
+                    calendarDiv.appendChild(dayElement);
+                } else if (dayCounter <= daysInMonth) {
+                    const dayElement = document.createElement('div');
+                    dayElement.classList.add('day');
+                    dayElement.textContent = dayCounter;
+                    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayCounter).padStart(2, '0')}`;
+
+                    const tasksForDay = tasks.filter(task => task.due_date === dateString);
+
+                    if (tasksForDay.length > 0) {
+                        const completedTasks = tasksForDay.filter(task => task.status === 'completed');
+                        const inProgressTasks = tasksForDay.filter(task => task.status === 'in progress');
+
+                        if (completedTasks.length === tasksForDay.length) {
+                            dayElement.classList.add('completed-task');
+                        } else if (completedTasks.length > 0 && inProgressTasks.length > 0) {
+                            dayElement.classList.add('partially-completed-task');
+                        } else {
+                            dayElement.classList.add('has-task');
+                        }
+
+                    }
+                    dayElement.addEventListener('click', () => showTasksForDay(tasksForDay));
+                    calendarDiv.appendChild(dayElement);
+                    dayCounter++;
+                }
+            }
+        }
+
+        currentMonthDisplay.textContent = `${getMonthName(month)} ${year}`;
+    }
+
+
+    function showTasksForDay(tasksForDay) {
+        dayTaskListDiv.innerHTML = '<h3>Задания на выбранный день</h3>';
+        dayTaskListDiv.classList.add('active');
+
+         if (tasksForDay.length === 0) {
+            const noTasksMessage = document.createElement('p');
+            noTasksMessage.textContent = 'В этот день нет заданий.';
+            dayTaskListDiv.appendChild(noTasksMessage);
+        } else {
+            tasksForDay.forEach(task => {
+                const taskItem = document.createElement('div');
+                taskItem.classList.add('task-item');
+                   const links = task.links ? task.links.split(',') : [];
+                     const files = task.files ? task.files.split(',') : [];
+                taskItem.innerHTML = `
+                    <div style="background-color: ${task.color}">
+                    <h3>${task.title}</h3>
+                    <p>Дата сдачи: ${task.due_date}</p>
+                     <p>Предмет: ${task.subject}</p>
+                    </div>
+                     <div>
+                      <button data-task-id="${task.id}" class="complete-btn">${task.status === 'completed' ? 'Отменить' : 'Выполнено'}</button>
+                       <button data-task-id="${task.id}" class="details-button">Подробнее</button>
+                     </div>
+
+                `;
+                const completeButton = taskItem.querySelector('.complete-btn');
+                 completeButton.addEventListener('click', () => toggleComplete(task.id));
+
+                const detailsButton = taskItem.querySelector('.details-button');
+                detailsButton.addEventListener('click', () => showTaskDetails(task.id));
+
+                dayTaskListDiv.appendChild(taskItem);
+            });
+        }
+    }
+     function selectDay(dayElement) {
+        const selectedDay = document.querySelector('.day.selected');
+        if (selectedDay) {
+            selectedDay.classList.remove('selected');
+        }
+        dayElement.classList.add('selected')
+    }
+
+    function getMonthName(month) {
+        const monthNames = [
+            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+        ];
+        return monthNames[month];
+    }
+   function updateCurrentWeek(){
+    currentWeekDisplay.textContent = `Неделя ${currentWeek}`;
+   }
+    prevMonthButton.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        generateCalendar();
+    });
+
+    nextMonthButton.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        generateCalendar();
+    });
+        prevWeekButton.addEventListener('click', () => {
+        currentWeek--;
+        updateCurrentWeek();
+          fetchSchedule();
+    });
+    nextWeekButton.addEventListener('click', () => {
+        currentWeek++;
+         updateCurrentWeek();
+          fetchSchedule();
+    });
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.getAttribute('data-tab');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            if(tabId === 'schedule'){
+                fetchSchedule()
+            }
+        });
+    });
+
+    addTaskButton.addEventListener('click', () => {
+         addTaskForm.style.display = 'block';
+    });
+    taskDetailsCloseButton.addEventListener('click', () => {
+         taskDetailsDiv.style.display = 'none';
+    });
+     cancelAddButton.addEventListener('click', () => {
+         addTaskForm.style.display = 'none';
+     });
+         saveNewDueDate.addEventListener('click', () => {
+              const taskId = taskDetailsDiv.getAttribute('data-task-id')
+              const newDate = taskNewDueDate.value;
+                fetch(`/update_due_date/${taskId}`, {
+                    method: 'POST',
+                    headers:{
+                        'Content-type': 'application/x-www-form-urlencoded'
+                    },
+                    body: `new_date=${newDate}`
+                })
+                    .then(response => response.json())
+                   .then(data => {
+                       if(data.tasks){
+                            tasks = data.tasks;
+                             setTaskColors()
+                            renderTasks();
+                             generateCalendar();
+                             taskDetailsDiv.style.display = 'none'
+                       }else {
+                         console.log(data)
+                        }
+                })
+                    .catch(error => console.error("Ошибка",error))
+           });
+            addLinkBtn.addEventListener('click', () => {
+            const newInput = document.createElement('input');
+             newInput.type = 'text';
+            newInput.classList.add('taskLink')
+            newInput.name = 'taskLink';
+            newInput.placeholder = "Ссылка на задание";
+            linksContainer.appendChild(newInput);
+        });
+       addFileBtn.addEventListener('click', () => {
+           const newInput = document.createElement('input');
+           newInput.type = 'file';
+           newInput.name = 'taskFiles';
+           filesContainer.appendChild(newInput);
+        });
+      addTaskFormElement.addEventListener('submit', (event) => {
+         event.preventDefault();
+         const taskTitleInput = document.getElementById('taskTitle');
+         const taskDescriptionInput = document.getElementById('taskDescription');
+         const taskDueDateInput = document.getElementById('taskDueDate');
+         const taskSubjectInput = document.getElementById('taskSubject');
+
+        const newTask = {
+            title: taskTitleInput.value,
+             description: taskDescriptionInput.value,
+            dueDate: taskDueDateInput.value,
+            subject: taskSubjectInput.value
+         };
+            const formData = new FormData(addTaskFormElement);
+          fetch('/add_task', {
+           method: 'POST',
+           body: formData,
+           })
+          .then(response => response.json())
+           .then(data => {
+               if (data.tasks) {
+                 tasks = data.tasks;
+                  setTaskColors();
+                    addTaskForm.style.display = 'none';
+                     taskTitleInput.value = '';
+                     taskDescriptionInput.value = '';
+                    taskDueDateInput.value = '';
+                    taskSubjectInput.value = '';
+                   linksContainer.innerHTML = `<input type="text" class="taskLink" name="taskLink" placeholder="Ссылка на задание">`
+                    filesContainer.innerHTML = ""
+                     renderTasks();
+                     generateCalendar();
+                }
+              else {
+                    console.error('Не удалось обновить задачи:', data);
+                }
+             })
+            .catch(error => console.error('Ошибка:', error));
+    });
+      function fetchTasks(){
+        fetch('/', { method: 'GET' })
+           .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+                }
+              return response.text()
+            })
+            .then(html => {
+                 const tempElement = document.createElement('div');
+                tempElement.innerHTML = html;
+                const newTasks = JSON.parse(tempElement.querySelector('#tasksData').textContent);
+                 tasks = newTasks;
+                   setTaskColors();
+                 renderTasks();
+                 generateCalendar();
+            })
+             .catch(error => console.error('Ошибка при получении данных о задачах:', error));
+      }
+         function setTaskColors(){
+          tasks.forEach(task => {
+            const dueDate = new Date(task.due_date);
+            const today = new Date();
+            const diffTime = dueDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+             if (task.status === "in progress"){
+               if (diffDays <= 3) {
+                   task.color = '#ffebee';
+               } else if (diffDays <= 7) {
+                   task.color = '#fff9c4';
+               } else {
+                   task.color = '';
+               }
+            }
+            else{
+                task.color = '';
+            }
+        });
+      }
+        updateCurrentWeek();
+        setTaskColors()
+        renderTasks();
+        generateCalendar();
+});
+    </script>
+</body>
+</html>
